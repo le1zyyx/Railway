@@ -5,13 +5,16 @@ import threading
 import time
 import requests
 from datetime import datetime
+from prometheus_client import Gauge, generate_latest
 
 log_file = "service.log"
 app = Flask(__name__)
 
+ZEC_PRICE = Gauge('zec_price_usd', 'Current price of Zcash in USD')
+
 @app.route("/")
 def index():
-    return "<h2>ZEC Price Tracker</h2><a href='/logs'>View Logs</a> | <a href='/kill'>Kill Service</a>"
+    return "<h2>ZEC Price Tracker</h2><a href='/logs'>View Logs</a> | <a href='/kill'>Kill Service</a> | <a href='/metrics'>Metrics</a>"
 
 @app.route("/kill")
 def kill():
@@ -29,13 +32,18 @@ def logs():
         data = ["No logs yet\n"]
     return Response("<pre>" + "".join(data) + "</pre>", mimetype="text/html")
 
+@app.route("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype="text/plain")
+
 def heartbeat():
     while True:
-        price = "N/A"
+        price = 0
         try:
             url = "https://api.coingecko.com/api/v3/simple/price?ids=zcash&vs_currencies=usd"
             r = requests.get(url, timeout=10).json()
             price = r["zcash"]["usd"]
+            ZEC_PRICE.set(price)
         except:
             pass
         
